@@ -47,7 +47,6 @@ def create_guided_filter(images, args):
     	mag = cv2.Laplacian(img, cv2.CV_64F)
     	mag = np.absolute(mag)
     	guided_filter = np.maximum(guided_filter, mag)
-    guided_filter = cv2.resize(guided_filter, (int(guided_filter.shape[1]*0.4), int(guided_filter.shape[0]*0.4))) 
     return guided_filter
 
 def main():
