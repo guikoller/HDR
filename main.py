@@ -37,6 +37,9 @@ def create_hdr_image(images):
     hdr_image = np.clip(hdr_image, 0, 255).astype(np.uint8)
     
     return hdr_image
+    
+def guided_filter():
+    print("TEST")
 
 def main():
     parser = argparse.ArgumentParser(description='Create an HDR image from a directory of images.')
