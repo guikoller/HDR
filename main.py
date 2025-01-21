@@ -44,9 +44,10 @@ def create_guided_filter(images, args):
     guided_filter = np.zeros_like(images[0])
     
     for img in images:
-    	mag = cv2.Laplacian(img, cv2.CV_64F)
-    	mag = np.absolute(mag)
-    	guided_filter = np.maximum(guided_filter, mag)
+        mag = cv2.Laplacian(img, cv2.CV_64F)
+        mag = np.absolute(mag)
+        guided_filter = np.maximum(guided_filter, mag)
+     
     return guided_filter
 
 def main():
@@ -60,9 +61,10 @@ def main():
     
     guided_filter = create_guided_filter(images, args)
     
-    #hdr_image = create_hdr_image(images)
+    hdr_image = create_hdr_image(images)
     
-    #cv2.imwrite(args.output, hdr_image)
+    cv2.imwrite(args.output+"_guided_filter.png", guided_filter)
+    cv2.imwrite(args.output+".png", hdr_image)
 
 if __name__ == '__main__':
     main()
