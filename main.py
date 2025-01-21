@@ -37,6 +37,18 @@ def create_hdr_image(images):
     hdr_image = np.clip(hdr_image, 0, 255).astype(np.uint8)
     
     return hdr_image
+    
+def create_guided_filter(images, args):
+    
+    images = [cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) for img in images]
+    guided_filter = np.zeros_like(images[0])
+    
+    for img in images:
+        mag = cv2.Laplacian(img, cv2.CV_64F)
+        mag = np.absolute(mag)
+        guided_filter = np.maximum(guided_filter, mag)
+     
+    return guided_filter
 
 def main():
     parser = argparse.ArgumentParser(description='Create an HDR image from a directory of images.')
@@ -47,9 +59,12 @@ def main():
     
     images = [img for img, _ in open_all_images(args.directory)]
     
+    guided_filter = create_guided_filter(images, args)
+    
     hdr_image = create_hdr_image(images)
     
-    cv2.imwrite(args.output, hdr_image)
+    cv2.imwrite(args.output+"_guided_filter.png", guided_filter)
+    cv2.imwrite(args.output+".png", hdr_image)
 
 if __name__ == '__main__':
     main()
