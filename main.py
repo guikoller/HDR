@@ -22,25 +22,52 @@ def open_all_images(folder):
     return images
 
 def create_hdr_image(images):
-    # Convert images to float32
-    images = [img.astype(np.float32) for img in images]
+    n = len(images)
+    height, width = images[0].shape[:2]
+
+    max_mag = np.zeros((height, width), dtype=np.uint8)
+    map = np.full((height, width), n // 2, dtype=np.uint8)
+
+    print("Creating Magnitude Map")
+    for i, img in enumerate(images):
+        gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        #gradient magnitude
+        grad_x = cv2.Sobel(gray_img, cv2.CV_32F, 1, 0, ksize=3)
+        grad_y = cv2.Sobel(gray_img, cv2.CV_32F, 0, 1, ksize=3)
+        magnitude = cv2.magnitude(grad_x, grad_y)
+
+        # Blur the magnitude image
+        magnitude_8u = cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        blurred_magnitude = cv2.medianBlur(magnitude_8u, 11)
+
+        # Update max_mag and map
+        mask = blurred_magnitude > max_mag
+        max_mag[mask] = blurred_magnitude[mask]
+        map[mask] = i
     
-    # Create an empty array for the HDR image
-    hdr_image = np.zeros_like(images[0])
-    
-    # Simple HDR algorithm: average the pixel values
-    for img in images:
-        hdr_image += img
-    hdr_image /= len(images)
-    
-    # Convert back to uint8
-    hdr_image = np.clip(hdr_image, 0, 255).astype(np.uint8)
-    
-    return hdr_image
-    
-def create_guided_filter(images, args):
-    
-    images = [cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) for img in images]
+    sigma = min(width, height) / 24
+    map_blurred = cv2.GaussianBlur(map.astype(np.float32), (0, 0), sigma)
+
+    print("Creating HDR Image")
+    # inerpola varias imgs
+    hdr = np.zeros_like(images[0], dtype=np.float32)
+    for y in range(height):
+        for x in range(width):
+            i = int(map_blurred[y, x])  # qual imagem
+            alpha = map_blurred[y, x] - i #ex. 2.5 - 2 = 0.5
+            if i < n - 1:   #se não for a última imagem
+                hdr[y, x] = images[i][y, x] * (1 - alpha) + images[i + 1][y, x] * alpha
+            else:
+                hdr[y, x] = images[i][y, x] * (1 - alpha) + images[i - 1][y, x] * alpha
+
+    hdr = cv2.normalize(hdr, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+    map_blurred = cv2.normalize(map_blurred, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        
+    return map_blurred, hdr  
+
+def create_guided_filter(images, map):
     guided_filter = np.zeros_like(images[0])
     
     for img in images:
@@ -56,15 +83,19 @@ def main():
     parser.add_argument('-o', '--output', required=True, help='Output HDR image file name')
     
     args = parser.parse_args()
-    
+    print("Creating HDR Image for " + args.directory)
     images = [img for img, _ in open_all_images(args.directory)]
+    #sort images by brightness
+    images.sort(key=lambda img: np.average(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)))
     
-    guided_filter = create_guided_filter(images, args)
-    
-    hdr_image = create_hdr_image(images)
-    
+    map, hdr = create_hdr_image(images)
+    guided_filter = create_guided_filter(images, map)
+
+    cv2.imwrite(args.output+".png", hdr)
+    cv2.imwrite(args.output+"_map.png", map)
     cv2.imwrite(args.output+"_guided_filter.png", guided_filter)
-    cv2.imwrite(args.output+".png", hdr_image)
+    
+    print("HDR Image created successfully")
 
 if __name__ == '__main__':
     main()
