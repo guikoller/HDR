@@ -28,6 +28,7 @@ def create_hdr_image(images):
     max_mag = np.zeros((height, width), dtype=np.uint8)
     map = np.full((height, width), n // 2, dtype=np.uint8)
 
+    print("Creating Magnitude Map")
     for i, img in enumerate(images):
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
@@ -48,6 +49,7 @@ def create_hdr_image(images):
     sigma = min(width, height) / 24
     map_blurred = cv2.GaussianBlur(map.astype(np.float32), (0, 0), sigma)
 
+    print("Creating HDR Image")
     # inerpola varias imgs
     hdr = np.zeros_like(images[0], dtype=np.float32)
     for y in range(height):
@@ -81,20 +83,19 @@ def main():
     parser.add_argument('-o', '--output', required=True, help='Output HDR image file name')
     
     args = parser.parse_args()
-    
+    print("Creating HDR Image for " + args.directory)
     images = [img for img, _ in open_all_images(args.directory)]
-    
-    # Sort images by brightness
+    #sort images by brightness
     images.sort(key=lambda img: np.average(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)))
     
-    for index, (img, filename) in enumerate(open_all_images(args.directory)):
-        print(f"Index: {index}, Image Name: {filename}")
-    
     map, hdr = create_hdr_image(images)
+    guided_filter = create_guided_filter(images, map)
 
-    cv2.imwrite(args.output+"_hdr.png", hdr)
-
+    cv2.imwrite(args.output+".png", hdr)
     cv2.imwrite(args.output+"_map.png", map)
+    cv2.imwrite(args.output+"_guided_filter.png", guided_filter)
+    
+    print("HDR Image created successfully")
 
 if __name__ == '__main__':
     main()
