@@ -3,6 +3,7 @@ import os
 import cv2
 import numpy as np
 import sys
+import math
 
 def open_image(img_name):
     img = cv2.imread(img_name, cv2.IMREAD_COLOR)
@@ -67,6 +68,42 @@ def create_hdr_image(images):
         
     return map_blurred, hdr  
 
+def approach_2(images):
+    gray_imgs = [cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) for img in images]
+    height, width = gray_imgs[0].shape[:2]
+    n = len(gray_imgs) 
+    map = np.full((height, width), n // 2, dtype=np.uint8)
+    print("Creating derivatives map")
+    for y in range(height):
+        for x in range(width):
+            pixel_value = [gray_imgs[i][y, x] for i in range(n)]
+            pixel_value = np.array(pixel_value, dtype=np.int16)  # Prevenir overflow
+            derivadas = [pixel_value[j+1] - pixel_value[j] for j in range(n-1)]
+            max_index = derivadas.index(max(derivadas))
+            map[y, x] = (max_index/float(n-2))*(n-1) 
+   
+    sigma = min(width, height) / 24
+    map_blurred = cv2.GaussianBlur(map.astype(np.float32), (0, 0), sigma)
+
+    print("Creating HDR Image with approach 2")
+    # inerpola varias imgs
+    hdr = np.zeros_like(images[0], dtype=np.float32)
+    for y in range(height):
+        for x in range(width):
+            i = int(map_blurred[y, x])  # qual imagem
+            alpha = map_blurred[y, x] - i #ex. 2.5 - 2 = 0.5
+            if i < n - 1:   #se não for a última imagem
+                hdr[y, x] = images[i][y, x] * (1 - alpha) + images[i + 1][y, x] * alpha
+            else:
+                hdr[y, x] = images[i][y, x] * (1 - alpha) + images[i - 1][y, x] * alpha
+
+    hdr = cv2.normalize(hdr, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+    map_blurred = cv2.normalize(map_blurred, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        
+    return map_blurred, hdr 
+
+
 def create_guided_filter(images, map):
     guided_filter = np.zeros_like(images[0])
     
@@ -90,10 +127,13 @@ def main():
     
     map, hdr = create_hdr_image(images)
     guided_filter = create_guided_filter(images, map)
+    map2, hdr2 = approach_2(images)
 
     cv2.imwrite(args.output+".png", hdr)
     cv2.imwrite(args.output+"_map.png", map)
     cv2.imwrite(args.output+"_guided_filter.png", guided_filter)
+    cv2.imwrite(args.output+"2.png", hdr2)
+    cv2.imwrite(args.output+"_map2.png", map2)
     
     print("HDR Image created successfully")
 
