@@ -112,6 +112,13 @@ def create_guided_filter(images, map):
         mag = np.absolute(mag)
         guided_filter = np.maximum(guided_filter, mag)
      
+    guided_filter = cv2.normalize(guided_filter, None, 0, 255, cv2.NORM_MINMAX)
+    guided_filter = np.power(guided_filter/255.0, 0.5) * 255
+    guided_filter = np.uint8(guided_filter)
+    sharp_edge = np.array([[0,-1,0],
+    			   [-1,5,-1],
+    			   [0,-1,0]])
+    guided_filter = cv2.filter2D(guided_filter, -1, sharp_edge)
     return guided_filter
 
 def main():
@@ -125,8 +132,8 @@ def main():
     #sort images by brightness
     images.sort(key=lambda img: np.average(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)))
     
-    map, hdr = create_hdr_image(images)
-    guided_filter = create_guided_filter(images, map)
+    guided_filter = create_guided_filter(images, args)
+    map, hdr = create_hdr_image(images)    
     map2, hdr2 = approach_2(images)
 
     cv2.imwrite(args.output+".png", hdr)
